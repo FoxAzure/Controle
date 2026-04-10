@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Budget Tracker</title>
+    <style>
+        /* ================================= VARIABLES & RESET ---------------------------------------------- */
+        :root {
+            --bg-color: #0f172a;
+            --panel-color: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --color-safe: #10b981;    /* Verde */
+            --color-warning: #eab308; /* Amarelo */
+            --color-danger: #ef4444;  /* Vermelho */
+            --current-color: var(--color-safe);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        /* ================================= LAYOUT ---------------------------------------------- */
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            position: relative;
+        }
+
+        .header { text-align: center; }
+        .header h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .header p { color: var(--text-muted); font-size: 0.9rem; }
+
+        /* ================================= PROGRESS CIRCLE ---------------------------------------------- */
+        .progress-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 1rem 0;
+        }
+
+        .progress-circle {
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            /* O CSS Custom Property --progress gerencia o preenchimento via JS */
+            background: conic-gradient(var(--current-color) calc(var(--progress) * 1%), var(--panel-color) 0);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 30px rgba(0,0,0,0.3);
+            transition: background 0.4s ease-out;
+        }
+
+        .progress-inner {
+            width: 190px;
+            height: 190px;
+            background-color: var(--bg-color);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .amount-spent { font-size: 2.2rem; font-weight: 700; transition: color 0.3s; }
+        .amount-total { font-size: 0.9rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+        /* ================================= CONTROLS ---------------------------------------------- */
+        .input-group {
+            display: flex;
+            gap: 0.5rem;
+            background: var(--panel-color);
+            padding: 0.5rem;
+            border-radius: 12px;
+        }
+
+        .input-group input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 1.2rem;
+            padding: 0.5rem;
+            outline: none;
+            text-align: center;
+        }
+        
+        /* Remove setinhas do input number */
+        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 0.8rem 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        button:active { transform: scale(0.96); }
+
+        .btn-add { background-color: var(--color-safe); color: #fff; font-size: 1rem; }
+        
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--text-muted);
+            color: var(--text-muted);
+            flex: 1;
+        }
+
+        .btn-danger {
+            background: transparent;
+            border: 1px solid var(--color-danger);
+            color: var(--color-danger);
+            flex: 1;
+        }
+
+        /* ================================= MODALS ---------------------------------------------- */
+        .modal-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(4px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+            z-index: 10;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal-content {
+            background: var(--panel-color);
+            padding: 2rem;
+            border-radius: 16px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .modal-content h2 { margin-bottom: 1rem; }
+        .modal-content input {
+            width: 100%;
+            padding: 0.8rem;
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--text-muted);
+            background: var(--bg-color);
+            color: var(--text-main);
+            font-size: 1.2rem;
+            text-align: center;
+        }
+
+        .history-list {
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            margin-bottom: 1rem;
+            border-top: 1px solid #334155;
+            padding-top: 1rem;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #334155;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="header">
+            <h1>Controle Financeiro</h1>
+            <p>Mantenha-se na linha</p>
+        </div>
+
+        <div class="progress-wrapper">
+            <div class="progress-circle" id="progressCircle">
+                <div class="progress-inner">
+                    <div class="amount-spent" id="displaySpent">R$ 0,00</div>
+                    <div class="amount-total" id="displayGoal">de R$ 0,00</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <input type="number" id="expenseInput" placeholder="R$ 0,00" step="0.01">
+            <button class="btn-add" onclick="addExpense()">Lançar</button>
+        </div>
+
+        <div class="actions">
+            <button class="btn-outline" onclick="openModal('historyModal')">Ver Registros</button>
+            <button class="btn-danger" onclick="confirmReset()">Nova Fatura</button>
+        </div>
+
+        <div class="modal-overlay" id="goalModal">
+            <div class="modal-content">
+                <h2>Definir Nova Meta</h2>
+                <p style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.9rem;">Qual o limite de gastos?</p>
+                <input type="number" id="goalInput" placeholder="Ex: 500.00" step="0.01">
+                <button class="btn-add" style="width: 100%" onclick="setGoal()">Salvar Meta</button>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="historyModal">
+            <div class="modal-content">
+                <h2>Registros do Mês</h2>
+                <div class="history-list" id="historyList">
+                    </div>
+                <button class="btn-outline" style="width: 100%" onclick="closeModal('historyModal')">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State Variables
+        let budgetData = JSON.parse(localStorage.getItem('qualyBudget')) || {
+            goal: 0,
+            spent: 0,
+            history: []
+        };
+
+        const root = document.documentElement;
+
+        // Inicialização
+        function init() {
+            if (budgetData.goal === 0) {
+                openModal('goalModal');
+            } else {
+                updateUI();
+            }
+        }
+
+        // Atualiza a Interface e as Cores
+        function updateUI() {
+            const displaySpent = document.getElementById('displaySpent');
+            const displayGoal = document.getElementById('displayGoal');
+            
+            // Formatadores de moeda
+            displaySpent.innerText = budgetData.spent.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            displayGoal.innerText = `de ${budgetData.goal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+
+            // Cálculos da barra de progresso
+            let percentage = (budgetData.spent / budgetData.goal) * 100;
+            if (percentage > 100) percentage = 100; // Trava o visual em 100%
+            
+            root.style.setProperty('--progress', percentage);
+
+            // Lógica de Cores solicitada
+            if (budgetData.spent > budgetData.goal) {
+                root.style.setProperty('--current-color', 'var(--color-danger)');
+                displaySpent.style.color = 'var(--color-danger)';
+            } else if (budgetData.spent >= (budgetData.goal * 0.9)) {
+                root.style.setProperty('--current-color', 'var(--color-warning)');
+                displaySpent.style.color = 'var(--color-warning)';
+            } else {
+                root.style.setProperty('--current-color', 'var(--color-safe)');
+                displaySpent.style.color = 'var(--text-main)';
+            }
+
+            saveData();
+            renderHistory();
+        }
+
+        // Lançar Gasto
+        function addExpense() {
+            const input = document.getElementById('expenseInput');
+            const amount = parseFloat(input.value.replace(',', '.')); // Aceita vírgula ou ponto
+
+            if (isNaN(amount) || amount <= 0) return; // Evita inputs vazios ou zerados
+
+            budgetData.spent += amount;
+            
+            // Registra no histórico com data e hora
+            const date = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            budgetData.history.unshift({ amount: amount, date: date }); // unshift coloca no topo da lista
+
+            input.value = ''; // Limpa o input
+            updateUI();
+        }
+
+        // Definir Meta
+        function setGoal() {
+            const input = document.getElementById('goalInput');
+            const amount = parseFloat(input.value);
+
+            if (isNaN(amount) || amount <= 0) return;
+
+            budgetData.goal = amount;
+            budgetData.spent = 0;
+            budgetData.history = []; // Limpa o histórico ao definir nova meta
+            
+            closeModal('goalModal');
+            updateUI();
+        }
+
+        // Reset Seguro (Nova Fatura)
+        function confirmReset() {
+            const confirmed = confirm("Tem certeza que deseja fechar essa fatura? Isso vai zerar tudo e pedir uma nova meta.");
+            if (confirmed) {
+                budgetData = { goal: 0, spent: 0, history: [] };
+                saveData();
+                root.style.setProperty('--progress', 0);
+                openModal('goalModal');
+            }
+        }
+
+        // Persistência de Dados
+        function saveData() {
+            localStorage.setItem('qualyBudget', JSON.stringify(budgetData));
+        }
+
+        // Renderiza lista do Modal
+        function renderHistory() {
+            const list = document.getElementById('historyList');
+            if (budgetData.history.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: var(--text-muted)">Nenhum registro ainda.</p>';
+                return;
+            }
+
+            list.innerHTML = budgetData.history.map(item => `
+                <div class="history-item">
+                    <span>${item.date}</span>
+                    <strong style="color: var(--color-danger)">+ ${item.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                </div>
+            `).join('');
+        }
+
+        // Helpers para os Modais
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        // Inicializa o script
+        window.onload = init;
+
+    </script>
+</body>
+</html>
